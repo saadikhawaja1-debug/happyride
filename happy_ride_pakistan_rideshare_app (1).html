@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Happy Ride - Pakistan Rideshare</title>
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Leaflet CSS & JS for Interactive Map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+    <!-- Google Fonts: Inter & Noto Nastaliq Urdu -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            gold: '#F59E0B',
+                            goldHover: '#D97706',
+                            dark: '#0F172A',
+                            card: '#1E293B',
+                            accent: '#10B981',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        urdu: ['Noto Nastaliq Urdu', 'serif']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #090D16;
+            color: #F8FAFC;
+            font-family: 'Inter', sans-serif;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        .font-urdu {
+            font-family: 'Noto Nastaliq Urdu', serif;
+            line-height: 2.2;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F172A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+
+        /* Map styling */
+        #map, #driverMap {
+            height: 100%;
+            width: 100%;
+            z-index: 1;
+        }
+
+        .leaflet-container {
+            background: #0F172A !important;
+        }
+
+        .screen {
+            display: none;
+            animation: fadeIn 0.25s ease-in-out forwards;
+        }
+
+        .screen.active {
+            display: flex;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Glowing accents */
+        .gold-glow {
+            box-shadow: 0 0 15px rgba(245, 158, 11, 0.35);
+        }
+
+        .gold-border-glow {
+            border-color: #F59E0B;
+            box-shadow: 0 0 10px rgba(245, 158, 11, 0.2);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-0 md:p-4 overflow-x-hidden">
+
+    <!-- Mobile Container Simulation -->
+    <div class="w-full max-w-md h-[100vh] md:h-[840px] bg-brand-dark md:rounded-3xl shadow-2xl flex flex-col relative overflow-hidden border border-slate-800">
+        
+        <!-- Top Navigation Bar / Status Bar -->
+        <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-4 py-3 flex items-center justify-between z-30 shrink-0">
+            <div class="flex items-center gap-2 cursor-pointer" onclick="goToScreen('screen-login')">
+                <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center font-black text-slate-950 text-xl shadow-lg">
+                    ⚡
+                </div>
+                <div>
+                    <h1 class="text-lg font-extrabold tracking-wide text-amber-400 leading-tight">HAPPY RIDE</h1>
+                    <p class="text-[10px] text-slate-400 font-medium tracking-wider uppercase">Pakistan Rideshare</p>
+                </div>
+            </div>
+
+            <!-- Global Language Selector Button -->
+            <button id="langToggleBtn" onclick="toggleLanguage()" class="px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-amber-400 font-bold text-xs hover:bg-slate-700 transition flex items-center gap-1.5 shadow-sm">
+                <i class="fa-solid fa-globe"></i>
+                <span id="langBtnLabel">اردو</span>
+            </button>
+        </header>
+
+        <!-- Main Screen Body Container -->
+        <main class="flex-1 relative overflow-y-auto overflow-x-hidden flex flex-col">
+
+            <!-- SCREEN 1: LOGIN PAGE -->
+            <section id="screen-login" class="screen active flex-col justify-between p-6 h-full">
+                <div class="text-center my-auto pt-4">
+                    <div class="inline-block p-4 rounded-3xl bg-amber-500/10 border border-amber-500/20 mb-4 gold-glow">
+                        <i class="fa-solid fa-taxi text-5xl text-amber-400"></i>
+                    </div>
+                    <h2 class="text-2xl font-extrabold text-white mb-2 lang-text" data-en="Welcome to Happy Ride" data-ur="ہیپی رائڈ میں خوش آمدید">Welcome to Happy Ride</h2>
+                    <p class="text-slate-400 text-sm max-w-xs mx-auto lang-text" data-en="Fast, safe, and reliable travel across Pakistan 🇵🇰" data-ur="پاکستان بھر میں تیز، محفوظ اور قابل اعتماد سفر 🇵🇰">Fast, safe, and reliable travel across Pakistan 🇵🇰</p>
+                </div>
+
+                <!-- Login Methods Form -->
+                <div class="space-y-3 mb-auto">
+                    <!-- Method 1: Pakistan Number -->
+                    <div class="bg-slate-800/80 p-1.5 rounded-2xl border border-slate-700 focus-within:border-amber-400 transition">
+                        <label class="block text-[11px] font-semibold text-slate-400 px-3 pt-1 lang-text" data-en="Pakistan Phone Number" data-ur="پاکستان فون نمبر">Pakistan Phone Number</label>
+                        <div class="flex items-center px-3 pb-1">
+                            <span class="text-amber-400 font-bold text-sm mr-2">+92</span>
+                            <input type="tel" id="loginPhoneInput" placeholder="300 1234567" class="bg-transparent border-none text-white text-sm focus:outline-none w-full tracking-wider font-mono">
+                            <button onclick="handleLogin('Phone')" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold text-xs px-3 py-1.5 rounded-xl transition">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="relative my-4 flex items-center justify-center">
+                        <div class="border-t border-slate-800 w-full"></div>
+                        <span class="bg-brand-dark px-3 text-xs text-slate-500 uppercase tracking-widest absolute lang-text" data-en="or continue with" data-ur="یا ان سے سائن ان کریں">or continue with</span>
+                    </div>
+
+                    <!-- Method 2: TikTok -->
+                    <button onclick="handleLogin('TikTok')" class="w-full bg-slate-800 hover:bg-slate-700/80 text-white font-medium py-3 px-4 rounded-2xl border border-slate-700 flex items-center justify-center gap-3 transition">
+                        <i class="fa-brands fa-tiktok text-lg text-cyan-400"></i>
+                        <span class="text-sm lang-text" data-en="Continue with TikTok" data-ur="ٹک ٹاک سے سائن ان کریں">Continue with TikTok</span>
+                    </button>
+
+                    <!-- Method 3: Google -->
+                    <button onclick="handleLogin('Google')" class="w-full bg-slate-800 hover:bg-slate-700/80 text-white font-medium py-3 px-4 rounded-2xl border border-slate-700 flex items-center justify-center gap-3 transition">
+                        <i class="fa-brands fa-google text-lg text-red-400"></i>
+                        <span class="text-sm lang-text" data-en="Continue with Google" data-ur="گوگل سے سائن ان کریں">Continue with Google</span>
+                    </button>
+
+                    <!-- Method 4: Facebook -->
+                    <button onclick="handleLogin('Facebook')" class="w-full bg-slate-800 hover:bg-slate-700/80 text-white font-medium py-3 px-4 rounded-2xl border border-slate-700 flex items-center justify-center gap-3 transition">
+                        <i class="fa-brands fa-facebook text-lg text-blue-500"></i>
+                        <span class="text-sm lang-text" data-en="Continue with Facebook" data-ur="فیس بک سے سائن ان کریں">Continue with Facebook</span>
+                    </button>
+
+                    <!-- Method 5: Email -->
+                    <button onclick="handleLogin('Email')" class="w-full bg-slate-800 hover:bg-slate-700/80 text-white font-medium py-3 px-4 rounded-2xl border border-slate-700 flex items-center justify-center gap-3 transition">
+                        <i class="fa-solid fa-envelope text-lg text-amber-400"></i>
+                        <span class="text-sm lang-text" data-en="Continue with Email" data-ur="ای میل سے سائن ان کریں">Continue with Email</span>
+                    </button>
+                </div>
+
+                <p class="text-center text-xs text-slate-500 pb-2">By continuing, you agree to Happy Ride Terms & Policy.</p>
+            </section>
+
+            <!-- SCREEN 2: ROLE SELECTION -->
+            <section id="screen-role" class="screen flex-col justify-between p-6 h-full">
+                <div class="pt-6">
+                    <h2 class="text-2xl font-extrabold text-white mb-1 text-center lang-text" data-en="Choose Your Role" data-ur="اپنا کردار منتخب کریں">Choose Your Role</h2>
+                    <p class="text-slate-400 text-sm text-center mb-8 lang-text" data-en="How do you want to use Happy Ride today?" data-ur="آج آپ ہیپی رائڈ کا استعمال کیسے کرنا چاہتے ہیں؟">How do you want to use Happy Ride today?</p>
+
+                    <div class="space-y-4">
+                        <!-- Passenger Choice Card -->
+                        <div onclick="selectRole('passenger')" class="role-card border-2 border-slate-800 bg-slate-800/50 hover:border-amber-400 p-5 rounded-3xl cursor-pointer transition flex items-center justify-between group">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">
+                                    <i class="fa-solid fa-user-check"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white group-hover:text-amber-400 transition lang-text" data-en="Passenger / Riding" data-ur="پیکسنجر / مسافر">Passenger / Riding</h3>
+                                    <p class="text-xs text-slate-400 lang-text" data-en="Book rides, cargo & travel easily" data-ur="سواری، کارگو اور باآسانی سفر بک کریں">Book rides, cargo & travel easily</p>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-amber-400 transition"></i>
+                        </div>
+
+                        <!-- Driver Choice Card -->
+                        <div onclick="selectRole('driver')" class="role-card border-2 border-slate-800 bg-slate-800/50 hover:border-amber-400 p-5 rounded-3xl cursor-pointer transition flex items-center justify-between group">
+                            <div class="flex items-center gap-4">
+                                <div class="w-14 h-14 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-2xl group-hover:scale-110 transition">
+                                    <i class="fa-solid fa-id-card"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white group-hover:text-emerald-400 transition lang-text" data-en="Driver / Captain" data-ur="ڈرائیور / کپتان">Driver / Captain</h3>
+                                    <p class="text-xs text-slate-400 lang-text" data-en="Earn daily by driving passengers or goods" data-ur="سواریوں یا سامان کی منتقلی سے روزانہ کمائیں">Earn daily by driving passengers or goods</p>
+                                </div>
+                            </div>
+                            <i class="fa-solid fa-chevron-right text-slate-600 group-hover:text-emerald-400 transition"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pb-4 text-center">
+                    <button onclick="goToScreen('screen-login')" class="text-slate-400 text-xs hover:text-white transition flex items-center justify-center gap-2 mx-auto">
+                        <i class="fa-solid fa-arrow-left"></i>
+                        <span class="lang-text" data-en="Back to Login" data-ur="واپس لاگ ان">Back to Login</span>
+                    </button>
+                </div>
+            </section>
+
+            <!-- SCREEN 3: LANGUAGE SELECTION -->
+            <section id="screen-lang-select" class="screen flex-col justify-between p-6 h-full">
+                <div class="pt-6">
+                    <h2 class="text-2xl font-extrabold text-white mb-1 text-center lang-text" data-en="Select Preferred Language" data-ur="اپنی زبان منتخب کریں">Select Preferred Language</h2>
+                    <p class="text-slate-400 text-sm text-center mb-8 lang-text" data-en="Choose language for interface text" data-ur="ایپ کے لئے زبان منتخب کریں">Choose language for interface text</p>
+
+                    <div class="space-y-4">
+                        <!-- English Option -->
+                        <button onclick="setLanguage('en')" class="w-full border-2 border-slate-700 bg-slate-800/60 hover:border-amber-400 p-5 rounded-3xl flex items-center justify-between text-left transition group">
+                            <div class="flex items-center gap-4">
+                                <span class="text-3xl">🇬🇧</span>
+                                <div>
+                                    <h3 class="text-lg font-bold text-white group-hover:text-amber-400">English</h3>
+                                    <p class="text-xs text-slate-400">Display full app in English text</p>
+                                </div>
+                            </div>
+                            <div id="check-en" class="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center hidden">
+                                <i class="fa-solid fa-check text-xs font-bold"></i>
+                            </div>
+                        </button>
+
+                        <!-- Urdu Option -->
+                        <button onclick="setLanguage('ur')" class="w-full border-2 border-slate-700 bg-slate-800/60 hover:border-amber-400 p-5 rounded-3xl flex items-center justify-between text-right transition group">
+                            <div class="flex items-center gap-4">
+                                <span class="text-3xl">🇵🇰</span>
+                                <div>
+                                    <h3 class="text-xl font-bold text-white font-urdu group-hover:text-amber-400">اردو</h3>
+                                    <p class="text-xs text-slate-400 font-urdu">پوری ایپ صرف اردو زبان میں دیکھیں</p>
+                                </div>
+                            </div>
+                            <div id="check-ur" class="w-6 h-6 rounded-full bg-amber-400 text-slate-950 flex items-center justify-center hidden">
+                                <i class="fa-solid fa-check text-xs font-bold"></i>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="pb-4">
+                    <button onclick="goToScreen('screen-profile')" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3.5 rounded-2xl shadow-lg transition lang-text" data-en="Continue to Profile" data-ur="پروفائل کی طرف آگے بڑھیں">
+                        Continue to Profile
+                    </button>
+                </div>
+            </section>
+
+            <!-- SCREEN 4: PROFILE DETAILS FORM -->
+            <section id="screen-profile" class="screen flex-col justify-between p-6 h-full">
+                <div class="pt-4 overflow-y-auto">
+                    <h2 class="text-2xl font-extrabold text-white mb-1 text-center lang-text" data-en="User Registration" data-ur="صارف کی تفصیلات">User Registration</h2>
+                    <p class="text-slate-400 text-sm text-center mb-6 lang-text" data-en="Enter required details to start" data-ur="آگے بڑھنے کے لئے اپنی تفصیلات درج کریں">Enter required details to start</p>
+
+                    <!-- Passenger Specific Form -->
+                    <form id="passenger-fields" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="Full Name" data-ur="مکمل نام">Full Name</label>
+                            <input type="text" id="pName" placeholder="e.g. Ali Ahmed" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="Phone Number" data-ur="فون نمبر">Phone Number</label>
+                            <input type="tel" id="pPhone" placeholder="+92 300 1234567" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="Emergency Contact Number" data-ur="ایمرجنسی رابطہ نمبر">Emergency Contact Number</label>
+                            <input type="tel" id="pEmergency" placeholder="+92 321 9876543" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400">
+                        </div>
+                    </form>
+
+                    <!-- Driver Specific Form -->
+                    <form id="driver-fields" class="space-y-4 hidden">
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="Driver Full Name" data-ur="ڈرائیور کا مکمل نام">Driver Full Name</label>
+                            <input type="text" id="dName" placeholder="e.g. Muhammad Usman" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="Vehicle Model / Name" data-ur="گاڑی کا ماڈل اور نام">Vehicle Model / Name</label>
+                            <input type="text" id="dVehicleModel" placeholder="e.g. Toyota Corolla / Honda CD70" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="Vehicle Registration Number" data-ur="گاڑی کا رجسٹریشن نمبر">Vehicle Registration Number</label>
+                            <input type="text" id="dVehicleNo" placeholder="e.g. LEB-1234" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400 uppercase">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-300 mb-1.5 lang-text" data-en="CNIC / Driving License Info" data-ur="شناختی کارڈ / ڈرائیونگ لائسنس نمبر">CNIC / Driving License Info</label>
+                            <input type="text" id="dCnic" placeholder="35201-XXXXXXX-X" class="w-full bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3 text-white text-sm focus:outline-none focus:border-amber-400">
+                        </div>
+                    </form>
+                </div>
+
+                <div class="pt-4">
+                    <button onclick="saveProfileAndProceed()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3.5 rounded-2xl shadow-lg transition lang-text" data-en="Save & Continue" data-ur="محفوظ کریں اور آگے بڑھیں">
+                        Save & Continue
+                    </button>
+                </div>
+            </section>
+
+            <!-- SCREEN 5: PASSENGER MAIN APP INTERFACE -->
+            <section id="screen-passenger" class="screen flex-col h-full relative">
+                <!-- Top Overlay Location Input Card -->
+                <div class="absolute top-3 left-3 right-3 z-20 bg-slate-900/95 p-3 rounded-2xl border border-slate-700 shadow-xl backdrop-blur-md space-y-2">
+                    <!-- Pickup Location -->
+                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-xl border border-slate-700">
+                        <i class="fa-solid fa-circle text-emerald-400 text-xs"></i>
+                        <input type="text" id="pPickupInput" value="Gulberg III, Lahore" class="bg-transparent text-xs text-white w-full focus:outline-none">
+                    </div>
+
+                    <!-- Destination Location -->
+                    <div class="flex items-center gap-2 bg-slate-800 px-3 py-2 rounded-xl border border-slate-700">
+                        <i class="fa-solid fa-location-dot text-amber-400 text-sm"></i>
+                        <input type="text" id="pDropInput" value="Allama Iqbal International Airport, Lahore" class="bg-transparent text-xs text-white w-full focus:outline-none">
+                    </div>
+                </div>
+
+                <!-- Interactive Leaflet Map for Passenger -->
+                <div class="w-full flex-1 relative min-h-[300px]">
+                    <div id="map"></div>
+                </div>
+
+                <!-- Bottom Booking & Ride Sheet -->
+                <div class="bg-slate-900 border-t border-slate-800 p-4 z-20 space-y-3 rounded-t-3xl shadow-2xl">
+                    <!-- Vehicle Category Selector Tabs -->
+                    <div class="flex items-center justify-between gap-1 overflow-x-auto pb-1">
+                        <button onclick="selectVehicleCategory('car')" id="cat-car" class="cat-btn bg-amber-500 text-slate-950 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 shrink-0 shadow">
+                            <i class="fa-solid fa-car"></i> <span class="lang-text" data-en="Car" data-ur="کار">Car</span>
+                        </button>
+                        <button onclick="selectVehicleCategory('bike')" id="cat-bike" class="cat-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-2 rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-motorcycle"></i> <span class="lang-text" data-en="Bike" data-ur="بائیک">Bike</span>
+                        </button>
+                        <button onclick="selectVehicleCategory('van')" id="cat-van" class="cat-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-2 rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-van-shuttle"></i> <span class="lang-text" data-en="Van" data-ur="وین">Van</span>
+                        </button>
+                        <button onclick="selectVehicleCategory('cargo')" id="cat-cargo" class="cat-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-2 rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-truck-ramp-box"></i> <span class="lang-text" data-en="Cargo" data-ur="کارگو">Cargo</span>
+                        </button>
+                    </div>
+
+                    <!-- Sub-Options for Vehicles Container -->
+                    <div id="subCategoryOptions" class="grid grid-cols-3 gap-2">
+                        <!-- Rendered Dynamically via JS -->
+                    </div>
+
+                    <!-- Ride Status & Request Action Container -->
+                    <div class="bg-slate-800/80 p-3 rounded-2xl border border-slate-700 flex items-center justify-between">
+                        <div>
+                            <div class="text-[10px] text-slate-400 uppercase tracking-wider font-semibold lang-text" data-en="Estimated Fare" data-ur="تخمینہ کرایہ">Estimated Fare</div>
+                            <div class="text-xl font-extrabold text-amber-400" id="passengerFare">Rs. 450</div>
+                        </div>
+                        <button id="pRequestBtn" onclick="passengerRequestRide()" class="bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold px-6 py-2.5 rounded-xl shadow-lg transition lang-text" data-en="Request Ride" data-ur="سواری کی درخواست کریں">
+                            Request Ride
+                        </button>
+                    </div>
+
+                    <!-- Passenger Ride Progress Tracker Bar -->
+                    <div id="passengerRideTracker" class="hidden bg-slate-800 p-3 rounded-2xl border border-amber-500/30 space-y-2">
+                        <div class="flex items-center justify-between text-xs">
+                            <span class="text-slate-300 font-semibold flex items-center gap-2">
+                                <i id="pTrackerSpinner" class="fa-solid fa-spinner fa-spin text-amber-400"></i>
+                                <span id="pTrackerStatusText" class="lang-text" data-en="Searching for Nearby Captains..." data-ur="قریبی کپتان کی تلاش جاری ہے...">Searching for Nearby Captains...</span>
+                            </span>
+                            <span id="pDriverEta" class="text-amber-400 font-bold">5 mins away</span>
+                        </div>
+                        <div class="w-full bg-slate-700 h-1.5 rounded-full overflow-hidden">
+                            <div id="pProgressBar" class="bg-amber-400 h-full w-1/4 transition-all duration-500"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SCREEN 6: DRIVER MAIN INTERFACE -->
+            <section id="screen-driver" class="screen flex-col h-full relative">
+                <!-- Driver Status Top Header -->
+                <div class="bg-slate-900 border-b border-slate-800 p-4 flex items-center justify-between z-20">
+                    <div>
+                        <h2 class="text-sm font-bold text-white" id="driverDisplayName">Captain Usman</h2>
+                        <p class="text-xs text-slate-400" id="driverVehicleDisplay">Toyota Corolla • LEB-1234</p>
+                    </div>
+
+                    <!-- Start Day / Go Online Button -->
+                    <button id="driverOnlineBtn" onclick="toggleDriverOnline()" class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-4 py-2 rounded-2xl font-bold text-xs flex items-center gap-2 transition">
+                        <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                        <span id="onlineBtnText" class="lang-text" data-en="Start Day / Go Online" data-ur="دن کا آغاز / آن لائن ہوں">Start Day / Go Online</span>
+                    </button>
+                </div>
+
+                <!-- Driver Content Area -->
+                <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                    
+                    <!-- Offline Warning Banner -->
+                    <div id="driverOfflineNotice" class="bg-slate-800/80 border border-slate-700 rounded-3xl p-6 text-center space-y-3 my-auto">
+                        <div class="w-16 h-16 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center text-2xl mx-auto">
+                            <i class="fa-solid fa-power-off"></i>
+                        </div>
+                        <h3 class="text-lg font-bold text-white lang-text" data-en="You are Offline" data-ur="آپ آف لائن ہیں">You are Offline</h3>
+                        <p class="text-xs text-slate-400 lang-text" data-en="Tap 'Start Day' button above to start receiving ride requests in your area." data-ur="اپنے علاقے میں سواری کی درخواستیں حاصل کرنے کے لیے اوپر 'دن کا آغاز' بٹن کو دبائیں۔">Tap 'Start Day' button above to start receiving ride requests in your area.</p>
+                    </div>
+
+                    <!-- Driver Ride Requests Available (When Online) -->
+                    <div id="driverRequestsContainer" class="hidden space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider lang-text" data-en="Nearby Booking Requests" data-ur="قریب تر سواری کی درخواستیں">Nearby Booking Requests</h3>
+                            <span class="bg-amber-500/20 text-amber-400 text-[10px] font-bold px-2 py-0.5 rounded-full">3 Available</span>
+                        </div>
+
+                        <!-- Sample Request 1 -->
+                        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3 shadow-md">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-amber-400 text-sm">
+                                        AH
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-white">Ali Hassan</h4>
+                                        <div class="flex items-center gap-1 text-xs text-amber-400">
+                                            <i class="fa-solid fa-star text-[10px]"></i>
+                                            <span>4.9</span>
+                                            <span class="text-slate-500">• 2.4 km away</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-base font-extrabold text-amber-400">PKR 450</span>
+                                    <span class="block text-[10px] text-slate-400">Cash Payment</span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1.5 text-xs bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-2 text-slate-300">
+                                    <i class="fa-solid fa-circle text-emerald-400 text-[8px]"></i>
+                                    <span class="truncate">Gulberg III, Main Boulevard, Lahore</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-slate-300">
+                                    <i class="fa-solid fa-location-dot text-amber-400 text-[10px]"></i>
+                                    <span class="truncate">Allama Iqbal Int'l Airport, Lahore</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 pt-1">
+                                <button onclick="denyRide(this)" class="w-1/3 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-xl text-xs font-bold transition lang-text" data-en="Deny" data-ur="مسترد کریں">
+                                    Deny
+                                </button>
+                                <button onclick="acceptRide('Ali Hassan', 'Gulberg III', 'Airport', 450)" class="w-2/3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-2 rounded-xl text-xs font-bold transition shadow-lg lang-text" data-en="Accept Ride" data-ur="قبول کریں">
+                                    Accept Ride
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Sample Request 2 -->
+                        <div class="bg-slate-800 rounded-2xl p-4 border border-slate-700 space-y-3 shadow-md">
+                            <div class="flex justify-between items-start">
+                                <div class="flex items-center gap-2">
+                                    <div class="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center font-bold text-amber-400 text-sm">
+                                        ZK
+                                    </div>
+                                    <div>
+                                        <h4 class="text-sm font-bold text-white">Zainab Khan</h4>
+                                        <div class="flex items-center gap-1 text-xs text-amber-400">
+                                            <i class="fa-solid fa-star text-[10px]"></i>
+                                            <span>4.8</span>
+                                            <span class="text-slate-500">• 1.1 km away</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-right">
+                                    <span class="text-base font-extrabold text-amber-400">PKR 280</span>
+                                    <span class="block text-[10px] text-slate-400">Wallet</span>
+                                </div>
+                            </div>
+
+                            <div class="space-y-1.5 text-xs bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                                <div class="flex items-center gap-2 text-slate-300">
+                                    <i class="fa-solid fa-circle text-emerald-400 text-[8px]"></i>
+                                    <span class="truncate">DHA Phase 5, Commercial Area</span>
+                                </div>
+                                <div class="flex items-center gap-2 text-slate-300">
+                                    <i class="fa-solid fa-location-dot text-amber-400 text-[10px]"></i>
+                                    <span class="truncate">Packages Mall, Walton Road</span>
+                                </div>
+                            </div>
+
+                            <div class="flex items-center gap-2 pt-1">
+                                <button onclick="denyRide(this)" class="w-1/3 bg-slate-700 hover:bg-slate-600 text-slate-300 py-2 rounded-xl text-xs font-bold transition lang-text" data-en="Deny" data-ur="مسترد کریں">
+                                    Deny
+                                </button>
+                                <button onclick="acceptRide('Zainab Khan', 'DHA Phase 5', 'Packages Mall', 280)" class="w-2/3 bg-emerald-500 hover:bg-emerald-600 text-slate-950 py-2 rounded-xl text-xs font-bold transition shadow-lg lang-text" data-en="Accept Ride" data-ur="قبول کریں">
+                                    Accept Ride
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Driver Navigation Screen (Appears once driver accepts) -->
+                    <div id="driverActiveNavigation" class="hidden flex-col h-full space-y-3">
+                        <!-- Active Passenger Info Bar -->
+                        <div class="bg-slate-800 p-3 rounded-2xl border border-slate-700 flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-amber-500/20 text-amber-400 flex items-center justify-center font-bold">
+                                    <i class="fa-solid fa-user"></i>
+                                </div>
+                                <div>
+                                    <h4 class="text-xs font-bold text-white" id="navPassengerName">Ali Hassan</h4>
+                                    <p class="text-[10px] text-emerald-400 font-semibold" id="navStatusText">Captain En Route to Pickup</p>
+                                </div>
+                            </div>
+
+                            <!-- Direct Google Maps External GPS Button -->
+                            <a id="openGoogleMapsBtn" target="_blank" href="#" class="bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center gap-1.5 transition shadow">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                                <span class="lang-text" data-en="Google Maps" data-ur="گوگل میپس">Google Maps</span>
+                            </a>
+                        </div>
+
+                        <!-- Driver Interactive Navigation Map -->
+                        <div class="w-full h-64 rounded-2xl overflow-hidden border border-slate-700 relative">
+                            <div id="driverMap"></div>
+                        </div>
+
+                        <!-- Trip Stage Action Control Button -->
+                        <div class="space-y-2">
+                            <button id="driverStageBtn" onclick="advanceTripStage()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-2xl shadow-lg transition text-sm flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-location-crosshairs"></i>
+                                <span id="driverStageBtnLabel" class="lang-text" data-en="Arrived at Pickup Location" data-ur="پک اپ کے مقام پر پہنچ گئے">Arrived at Pickup Location</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Post Dropoff Earnings Summary Screen -->
+                    <div id="driverSummaryCard" class="hidden bg-slate-800 border border-emerald-500/40 rounded-3xl p-6 text-center space-y-4">
+                        <div class="w-16 h-16 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-3xl mx-auto">
+                            <i class="fa-solid fa-circle-check"></i>
+                        </div>
+                        <div>
+                            <h3 class="text-xl font-extrabold text-white lang-text" data-en="Trip Completed!" data-ur="سفر مکمل ہو گیا!">Trip Completed!</h3>
+                            <p class="text-xs text-slate-400 lang-text" data-en="Passenger successfully dropped at destination." data-ur="مسافر کو کامیابی سے منزل پر چھوڑ دیا گیا ہے۔">Passenger successfully dropped at destination.</p>
+                        </div>
+
+                        <div class="bg-slate-900 p-4 rounded-2xl border border-slate-800">
+                            <div class="text-xs text-slate-400 mb-1 lang-text" data-en="Total Earnings" data-ur="کل آمدنی">Total Earnings</div>
+                            <div class="text-3xl font-black text-amber-400" id="driverEarnedAmount">PKR 450</div>
+                        </div>
+
+                        <button onclick="resetDriverDashboard()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-3 rounded-2xl transition lang-text" data-en="Look for Next Ride" data-ur="اگلی سواری تلاش کریں">
+                            Look for Next Ride
+                        </button>
+                    </div>
+
+                </div>
+            </section>
+
+        </main>
+
+        <!-- Footer / Navigation Bar -->
+        <footer id="appFooter" class="bg-slate-900 border-t border-slate-800 px-6 py-3 flex items-center justify-around text-xs z-30 shrink-0">
+            <button onclick="switchRoleView()" class="flex flex-col items-center gap-1 text-amber-400 font-bold">
+                <i class="fa-solid fa-route text-lg"></i>
+                <span class="lang-text" data-en="Ride" data-ur="سواری">Ride</span>
+            </button>
+            <button onclick="alertModal(currentLang === 'ur' ? 'حساب کی تفصیلات جلد دستیاب ہوں گی' : 'Account settings & history coming soon!')" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 transition">
+                <i class="fa-solid fa-clock-rotate-left text-lg"></i>
+                <span class="lang-text" data-en="History" data-ur="ہسٹری">History</span>
+            </button>
+            <button onclick="goToScreen('screen-role')" class="flex flex-col items-center gap-1 text-slate-500 hover:text-slate-300 transition">
+                <i class="fa-solid fa-user text-lg"></i>
+                <span class="lang-text" data-en="Switch Role" data-ur="کردار بدلیں">Switch Role</span>
+            </button>
+        </footer>
+
+        <!-- Custom Alert Modal Component (No default alert() used) -->
+        <div id="customModal" class="absolute inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-6 hidden">
+            <div class="bg-slate-800 border border-slate-700 p-6 rounded-3xl w-full max-w-xs text-center space-y-4 shadow-2xl">
+                <div class="w-12 h-12 rounded-2xl bg-amber-500/20 text-amber-400 flex items-center justify-center text-xl mx-auto">
+                    <i class="fa-solid fa-bell"></i>
+                </div>
+                <p id="modalMessage" class="text-sm font-semibold text-white"></p>
+                <button onclick="closeModal()" class="w-full bg-amber-500 hover:bg-amber-600 text-slate-950 font-bold py-2.5 rounded-xl transition">
+                    OK / ٹھیک ہے
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JavaScript Logic & App Controllers -->
+    <script>
+        // Global App State
+        let currentLang = 'en'; // 'en' or 'ur'
+        let currentRole = 'passenger'; // 'passenger' or 'driver'
+        let isDriverOnline = false;
+        let passengerMap = null;
+        let driverMap = null;
+        let pMarker = null, dMarker = null, routePolyline = null;
+        let currentVehicleCategory = 'car';
+        let currentVehicleSub = 'economy';
+        let tripStage = 0; // 0: en route, 1: arrived, 2: in progress, 3: completed
+
+        // Coordinates for Lahore simulation
+        const pickupCoords = [31.5204, 74.3587]; // Gulberg III
+        const dropCoords = [31.5216, 74.4036];   // Airport
+
+        // Sub-categories catalog
+        const vehicleSubData = {
+            car: [
+                { id: 'economy', en: 'Economy', ur: 'اکانومی', price: 350, icon: 'fa-car-side' },
+                { id: 'classic', en: 'Classic', ur: 'کلاسک', price: 450, icon: 'fa-car' },
+                { id: 'premium', en: 'Premium', ur: 'پریمیئم', price: 650, icon: 'fa-car-rear' }
+            ],
+            bike: [
+                { id: 'bike-std', en: 'Standard Bike', ur: 'عام بائیک', price: 150, icon: 'fa-motorcycle' },
+                { id: 'bike-ride', en: 'Ride + Helmet', ur: 'ہیلمٹ کے ساتھ', price: 180, icon: 'fa-shield-halved' }
+            ],
+            van: [
+                { id: 'van-std', en: '8 Seater Van', ur: '۸ سیٹر وین', price: 900, icon: 'fa-van-shuttle' },
+                { id: 'van-ac', en: 'AC Executive Van', ur: 'اے سی وین', price: 1200, icon: 'fa-bus' }
+            ],
+            cargo: [
+                { id: 'cargo-mini', en: 'Mini Loader', ur: 'چھوٹا لوڈر', price: 800, icon: 'fa-truck-pickup' },
+                { id: 'cargo-heavy', en: 'Shahzore Heavy', ur: 'شہزور بڑا ڈبہ', price: 1800, icon: 'fa-truck-flatbed' }
+            ]
+        };
+
+        // Window Load Initializer
+        window.onload = function() {
+            renderSubCategories('car');
+            initPassengerMap();
+        };
+
+        function toggleLanguage() {
+            setLanguage(currentLang === 'en' ? 'ur' : 'en');
+        }
+
+        function setLanguage(lang) {
+            currentLang = lang;
+            const langBtnLabel = document.getElementById('langBtnLabel');
+            const checkEn = document.getElementById('check-en');
+            const checkUr = document.getElementById('check-ur');
+
+            if (lang === 'ur') {
+                document.body.classList.add('font-urdu');
+                langBtnLabel.textContent = 'English';
+                checkUr?.classList.remove('hidden');
+                checkEn?.classList.add('hidden');
+            } else {
+                document.body.classList.remove('font-urdu');
+                langBtnLabel.textContent = 'اردو';
+                checkEn?.classList.remove('hidden');
+                checkUr?.classList.add('hidden');
+            }
+
+            // Update all element text marked with data-en & data-ur
+            document.querySelectorAll('.lang-text').forEach(el => {
+                const text = el.getAttribute(`data-${lang}`);
+                if (text) el.textContent = text;
+            });
+        }
+
+        function goToScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(screenId);
+            if (target) target.classList.add('active');
+
+            // Map invalidation resize trigger
+            if (screenId === 'screen-passenger' && passengerMap) {
+                setTimeout(() => passengerMap.invalidateSize(), 300);
+            }
+            if (screenId === 'screen-driver' && driverMap) {
+                setTimeout(() => driverMap.invalidateSize(), 300);
+            }
+        }
+
+        function handleLogin(method) {
+            alertModal(currentLang === 'ur' ? `${method} کے ذریعے لاگ ان کامیاب رہا!` : `Logged in successfully via ${method}!`);
+            goToScreen('screen-role');
+        }
+
+        function selectRole(role) {
+            currentRole = role;
+            const pFields = document.getElementById('passenger-fields');
+            const dFields = document.getElementById('driver-fields');
+
+            if (role === 'passenger') {
+                pFields.classList.remove('hidden');
+                dFields.classList.add('hidden');
+            } else {
+                dFields.classList.remove('hidden');
+                pFields.classList.add('hidden');
+            }
+
+            goToScreen('screen-lang-select');
+        }
+
+        function saveProfileAndProceed() {
+            if (currentRole === 'passenger') {
+                const name = document.getElementById('pName').value || 'Passenger';
+                alertModal(currentLang === 'ur' ? `خوش آمدید ${name}!` : `Welcome, ${name}!`);
+                goToScreen('screen-passenger');
+            } else {
+                const dName = document.getElementById('dName').value || 'Captain Usman';
+                const dVeh = document.getElementById('dVehicleModel').value || 'Toyota Corolla';
+                const dNo = document.getElementById('dVehicleNo').value || 'LEB-1234';
+
+                document.getElementById('driverDisplayName').textContent = dName;
+                document.getElementById('driverVehicleDisplay').textContent = `${dVeh} • ${dNo}`;
+
+                alertModal(currentLang === 'ur' ? `کیپٹن ${dName} کا پروفائل محفوظ ہوگیا!` : `Captain ${dName}'s profile saved!`);
+                goToScreen('screen-driver');
+            }
+        }
+
+        function selectVehicleCategory(category) {
+            currentVehicleCategory = category;
+
+            document.querySelectorAll('.cat-btn').forEach(btn => {
+                btn.className = "cat-btn bg-slate-800 text-slate-300 hover:bg-slate-700 px-3 py-2 rounded-xl font-medium text-xs flex items-center gap-1.5 shrink-0";
+            });
+
+            const activeBtn = document.getElementById(`cat-${category}`);
+            if (activeBtn) {
+                activeBtn.className = "cat-btn bg-amber-500 text-slate-950 px-3 py-2 rounded-xl font-bold text-xs flex items-center gap-1.5 shrink-0 shadow";
+            }
+
+            renderSubCategories(category);
+        }
+
+        function renderSubCategories(category) {
+            const container = document.getElementById('subCategoryOptions');
+            const list = vehicleSubData[category] || [];
+            container.innerHTML = '';
+
+            list.forEach((item, index) => {
+                const isSelected = index === 0;
+                if (isSelected) currentVehicleSub = item.id;
+
+                const div = document.createElement('div');
+                div.className = `p-2.5 rounded-2xl border text-center cursor-pointer transition ${
+                    isSelected ? 'border-amber-400 bg-amber-500/10' : 'border-slate-800 bg-slate-800/40 hover:border-slate-700'
+                }`;
+                div.onclick = () => selectSubCategory(item.id, item.price, div);
+
+                div.innerHTML = `
+                    <i class="fa-solid ${item.icon} text-lg text-amber-400 mb-1"></i>
+                    <div class="text-[11px] font-bold text-white truncate">${currentLang === 'ur' ? item.ur : item.en}</div>
+                    <div class="text-[10px] text-slate-400 font-mono mt-0.5">Rs. ${item.price}</div>
+                `;
+
+                container.appendChild(div);
+            });
+
+            if (list.length > 0) {
+                document.getElementById('passengerFare').textContent = `Rs. ${list[0].price}`;
+            }
+        }
+
+        function selectSubCategory(subId, price, element) {
+            currentVehicleSub = subId;
+            const container = document.getElementById('subCategoryOptions');
+            Array.from(container.children).forEach(child => {
+                child.className = 'p-2.5 rounded-2xl border text-center cursor-pointer transition border-slate-800 bg-slate-800/40 hover:border-slate-700';
+            });
+            element.className = 'p-2.5 rounded-2xl border text-center cursor-pointer transition border-amber-400 bg-amber-500/10';
+            document.getElementById('passengerFare').textContent = `Rs. ${price}`;
+        }
+
+        function initPassengerMap() {
+            if (passengerMap) return;
+
+            passengerMap = L.map('map', { zoomControl: false }).setView(pickupCoords, 13);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19,
+                attribution: '© OpenStreetMap'
+            }).addTo(passengerMap);
+
+            // Pickup Marker
+            L.marker(pickupCoords).addTo(passengerMap)
+                .bindPopup('Pickup Location')
+                .openPopup();
+
+            // Dropoff Marker
+            L.marker(dropCoords).addTo(passengerMap)
+                .bindPopup('Destination');
+
+            // Route Line simulation
+            L.polyline([pickupCoords, dropCoords], { color: '#F59E0B', weight: 4, opacity: 0.8 }).addTo(passengerMap);
+        }
+
+        function initDriverMap() {
+            if (driverMap) return;
+
+            driverMap = L.map('driverMap', { zoomControl: false }).setView(pickupCoords, 14);
+
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19
+            }).addTo(driverMap);
+
+            dMarker = L.marker(pickupCoords).addTo(driverMap).bindPopup('Passenger Location').openPopup();
+        }
+
+        function passengerRequestRide() {
+            const tracker = document.getElementById('passengerRideTracker');
+            const reqBtn = document.getElementById('pRequestBtn');
+            const statusText = document.getElementById('pTrackerStatusText');
+            const progressBar = document.getElementById('pProgressBar');
+
+            tracker.classList.remove('hidden');
+            reqBtn.disabled = true;
+            reqBtn.classList.add('opacity-50');
+
+            // Simulate Driver Acceptance Flow
+            setTimeout(() => {
+                statusText.textContent = currentLang === 'ur' ? "کپتان عثمان نے رائڈ قبول کر لی!" : "Captain Usman Accepted Your Ride!";
+                progressBar.style.width = "50%";
+            }, 3000);
+
+            setTimeout(() => {
+                statusText.textContent = currentLang === 'ur' ? "کپتان پہنچ رہا ہے..." : "Captain En Route to Pickup...";
+                progressBar.style.width = "75%";
+            }, 6000);
+        }
+
+        function toggleDriverOnline() {
+            isDriverOnline = !isDriverOnline;
+            const btn = document.getElementById('driverOnlineBtn');
+            const btnText = document.getElementById('onlineBtnText');
+            const offlineNotice = document.getElementById('driverOfflineNotice');
+            const requestsContainer = document.getElementById('driverRequestsContainer');
+
+            if (isDriverOnline) {
+                btn.className = "bg-emerald-500 text-slate-950 font-bold px-4 py-2 rounded-2xl text-xs flex items-center gap-2 transition gold-glow";
+                btnText.textContent = currentLang === 'ur' ? "آن لائن (دن شروع)" : "Online / Working";
+                offlineNotice.classList.add('hidden');
+                requestsContainer.classList.remove('hidden');
+            } else {
+                btn.className = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 px-4 py-2 rounded-2xl font-bold text-xs flex items-center gap-2 transition";
+                btnText.textContent = currentLang === 'ur' ? "دن کا آغاز / آن لائن ہوں" : "Start Day / Go Online";
+                offlineNotice.classList.remove('hidden');
+                requestsContainer.classList.add('hidden');
+            }
+        }
+
+        function denyRide(button) {
+            const card = button.closest('.bg-slate-800');
+            card.style.opacity = '0.3';
+            card.style.pointerEvents = 'none';
+        }
+
+        function acceptRide(passengerName, pickup, drop, fare) {
+            document.getElementById('driverRequestsContainer').classList.add('hidden');
+            const activeNav = document.getElementById('driverActiveNavigation');
+            activeNav.classList.remove('hidden');
+            activeNav.classList.add('flex');
+
+            document.getElementById('navPassengerName').textContent = passengerName;
+
+            // Direct External Google Maps URL formulation
+            const googleMapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${pickupCoords[0]},${pickupCoords[1]}`;
+            document.getElementById('openGoogleMapsBtn').href = googleMapsUrl;
+
+            setTimeout(() => {
+                initDriverMap();
+            }, 200);
+        }
+
+        function advanceTripStage() {
+            const btnLabel = document.getElementById('driverStageBtnLabel');
+            const navStatus = document.getElementById('navStatusText');
+
+            if (tripStage === 0) {
+                tripStage = 1;
+                btnLabel.textContent = currentLang === 'ur' ? "سفر شروع کریں (منزل کی طرف)" : "Start Trip to Destination";
+                navStatus.textContent = currentLang === 'ur' ? "پک اپ پر پہنچ گئے" : "Arrived at Pickup";
+            } else if (tripStage === 1) {
+                tripStage = 2;
+                btnLabel.textContent = currentLang === 'ur' ? "مسافر کو ڈراپ کریں / سفر مکمل" : "Drop Passenger / Complete Ride";
+                navStatus.textContent = currentLang === 'ur' ? "سفر جاری ہے..." : "Trip in Progress...";
+            } else if (tripStage === 2) {
+                // Complete Ride
+                document.getElementById('driverActiveNavigation').classList.add('hidden');
+                document.getElementById('driverSummaryCard').classList.remove('hidden');
+            }
+        }
+
+        function resetDriverDashboard() {
+            tripStage = 0;
+            document.getElementById('driverSummaryCard').classList.add('hidden');
+            document.getElementById('driverRequestsContainer').classList.remove('hidden');
+            const btnLabel = document.getElementById('driverStageBtnLabel');
+            btnLabel.textContent = currentLang === 'ur' ? "پک اپ کے مقام پر پہنچ گئے" : "Arrived at Pickup Location";
+        }
+
+        function switchRoleView() {
+            if (currentRole === 'passenger') {
+                goToScreen('screen-passenger');
+            } else {
+                goToScreen('screen-driver');
+            }
+        }
+
+        function alertModal(msg) {
+            document.getElementById('modalMessage').textContent = msg;
+            document.getElementById('customModal').classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('customModal').classList.add('hidden');
+        }
+    </script>
+</div>
+</body>
+</html>
